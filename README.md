@@ -80,7 +80,10 @@ To install the libraries, we need to run the following command:
 pio pkg install
 ```
 
-Initialization is complete. Restart the vs code and now we can start writing our code.
+Exit the project and restart the VSCode. Then we can see the platformIO tasks in our project:
+![vscode after restarting](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/ze2ggzuvlqo5k03rwer6.png)
+
+Initialization is complete. Now we can start writing our code.
 
 ### note:
 
