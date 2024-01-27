@@ -88,3 +88,66 @@ Initialization is complete. Now we can start writing our code.
 ### note:
 
 When I tried to use interface of the platformIO to create a new project, It didn't work properly. So I used the command line to create the project. I didn't understand why it didn't work. If you know the reason, please let me know in the comments.
+
+## Setting Up Your First 'Thing' in AWS IoT Core with SSL Certificates
+
+In this part, we're going to set up a 'thing' in AWS IoT Core. This 'thing' represents our ESP32 microcontroller in the AWS cloud. We'll also download the SSL certificates required for secure communication. Here's how we do it:
+
+#### 1. **Log in to AWS IoT Core**:
+
+- First, log in to your AWS Management Console and navigate to IoT Core.
+
+#### 2. **Create a Policy**:
+
+- In the AWS IoT Core console, navigate to 'Secure', and then 'Policies'.
+- Click on ‘Create a policy’.
+- Name your policy, for example, `iot_policy`.
+- Set the policy document with the following JSON structure:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": ["iot:*"],
+      "Resource": "*"
+    }
+  ]
+}
+```
+
+- This policy allows your 'thing' to perform all actions (`iot:*`) on all resources (`*`).
+
+#### 3. **Create a 'Thing'**:
+
+- Go to the 'Manage' section and click on 'Things'.
+- Choose 'Create' to start creating a new 'thing'.
+- Select 'Create a single thing'.
+- Click on 'next'.
+- Follow the guided steps to name your 'thing' and complete its creation. For this guide, we'll name our 'thing' `esp32_test1`.
+- Click on 'next'.
+- Select 'Auto-generate a new certificate (recommended)'.
+- Select the policy you created in the previous step (iot_policy).
+- Click on 'Create thing'.
+
+#### 4. **Download SSL Certificates**:
+
+- Once your thing is created, AWS IoT Core will prompt you to create certificates. Click on 'Create certificates'.
+- Download the following three essential files for your thing:
+  - A certificate file (`blablabla-certificate.pem.crt`).
+  - A private key file (`blablabla-private.pem.key`).
+  - The Amazon Root CA 1 (`AmazonRootCA1.pem`) file.
+- Make sure to save these files securely, as they are vital for your ESP32 to communicate securely with AWS IoT Core.
+
+The file names are too long and you can change the names. So do I. I changed the names as follows:
+
+- `blalblablabla-certificate.pem.crt` to `certificate.pem.crt`
+- `blalblablabla-private.pem.key` to `private.pem.key`
+- `AmazonRootCA1.pem` to `aws_cert_ca.pem`
+
+After changing the name of the files We have 3 files to use in our project:
+
+- `certificate.pem.crt`
+- `private.pem.key`
+- `aws_cert_ca.pem`
