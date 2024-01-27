@@ -80,7 +80,7 @@ To install the libraries, we need to run the following command:
 pio pkg install
 ```
 
-Initialization is complete. Now we can start writing our code.
+Initialization is complete. Restart the vs code and now we can start writing our code.
 
 ### note:
 
