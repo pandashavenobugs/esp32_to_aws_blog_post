@@ -346,9 +346,9 @@ String readFile(fs::FS &fs, const char *path)
 
 CertificateCredentialModel ConfigService::getCertificateCredential()
 {
-    String ca = readFile(fileSystem, "certs/aws_cert_ca.pem");
-    String certificate = readFile(fileSystem, "certs/certificate.pem.crt");
-    String privateKey = readFile(fileSystem, "certs/private.pem.key");
+    String ca = readFile(fileSystem, "/certs/aws_cert_ca.pem");
+    String certificate = readFile(fileSystem, "/certs/certificate.pem.crt");
+    String privateKey = readFile(fileSystem, "/certs/private.pem.key");
     return CertificateCredentialModel(ca, certificate, privateKey);
 }
 
