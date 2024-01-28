@@ -151,3 +151,43 @@ After changing the name of the files We have 3 files to use in our project:
 - `certificate.pem.crt`
 - `private.pem.key`
 - `aws_cert_ca.pem`
+
+## Configuring ESP32 Filesystem for AWS IoT Core Connection
+
+In this part, we're going to configure the ESP32 filesystem to connect to AWS IoT Core. We'll use the LittleFS file system to store the SSL certificates and the AWS IoT Core endpoint. Here's how we do it:
+
+#### 1. **Create a 'data' Folder**:
+
+In the root directory of your project, create a folder called `data`. This folder will contain all the files we need to store in the ESP32 filesystem.
+
+**Note**: The `data` folder must be in the root directory of your project. Otherwise, the ESP32 will not be able to find the files.
+
+![data folder](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/s73jg6j1qt2tk9tugdxq.png)
+
+The mqtt_config.json file will contain the AWS IoT Core endpoint, port, clientId, and topic to publish data.
+
+```json
+{
+  "port": 8883,
+  "host": "YOUR_AWS_IOT_CORE_ENDPOINT",
+  "clientId": "esp_test1",
+  "publishTopic": "esp32/sensor/test"
+}
+```
+
+To get host information we need to go to the AWS IoT Core console and click on the `Settings`tab. Then we can see the endpoint information.
+
+While connecting to AWS IoT Core, port 8883 is used for secure connection.
+
+clientId is the name of the thing we created in AWS IoT Core.
+
+publishTopic is the topic name that we will publish data to.
+
+The wifi_config.json file will contain ssid and password.
+
+```json
+{
+  "ssid": "your_wifi_name",
+  "password": "your_wifi_password"
+}
+```
