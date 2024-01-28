@@ -793,3 +793,5 @@ The data we can see is as follows:
 ```
 
 Everything is working properly. So What is next?
+
+## Building a SAM CloudFormation Template: Integrating DynamoDB, IoT Core Rule, and Lambda
