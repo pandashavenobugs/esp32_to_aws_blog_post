@@ -196,7 +196,7 @@ The wifi_config.json file will contain ssid and password.
 
 In this part, We're going to write the ESP32 code for connecting to AWS IoT Core. We'll use the PubSubClient library to connect to AWS IoT Core using MQTT.
 
-First We need to create the models for the wifi and mqtt configurations. We'll create the following models in the model folder in the lib folder.
+First We need to create the models for the wifi, mqtt and certificate configurations. We'll create the following models in the model folder in the lib folder.
 
 - `WifiCredentialModel.h`
 
