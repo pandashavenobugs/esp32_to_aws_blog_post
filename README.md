@@ -191,3 +191,67 @@ The wifi_config.json file will contain ssid and password.
   "password": "your_wifi_password"
 }
 ```
+
+## Writing the ESP32 Code for AWS IoT Core Connectivity
+
+In this part, We're going to write the ESP32 code for connecting to AWS IoT Core. We'll use the PubSubClient library to connect to AWS IoT Core using MQTT.
+
+First We need to create the models for the wifi and mqtt configurations. We'll create the following models in the model folder in the lib folder.
+
+- `WifiCredentialModel.h`
+
+```cpp
+// WifiCredentialModel class definition.
+
+#ifndef WIFICREDENTIALMODEL_H
+#define WIFICREDENTIALMODEL_H
+
+#include <Arduino.h>
+
+class WifiCredentialModel
+{
+public:
+    String ssid;
+    String password;
+    WifiCredentialModel() : ssid(""), password(""){};
+    WifiCredentialModel(String ssid, String password) : ssid(ssid), password(password){};
+
+    bool isEmpty()
+    {
+        return ssid == "" || password == "";
+    }
+};
+
+#endif
+```
+
+- `MqttCredentialModel.h`
+
+```cpp
+// MqttCredentialModel class definition.
+
+#ifndef MQTTCREDENTIALMODEL_H
+#define MQTTCREDENTIALMODEL_H
+
+#include <Arduino.h>
+
+class MqttCredentialModel
+{
+public:
+    int port;
+    String host;
+    String clientId;
+    String publishTopic;
+
+    MqttCredentialModel() : port(0), host(""), clientId(""), publishTopic(""){};
+    MqttCredentialModel(int port, String host, String clientId, String publishTopic) : port(port), host(host), clientId(clientId), publishTopic(publishTopic){};
+
+    bool isEmpty()
+    {
+        return port == 0 || host == "" || clientId == "" || publishTopic == "";
+    }
+};
+
+#endif
+
+```
