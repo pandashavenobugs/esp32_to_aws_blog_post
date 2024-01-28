@@ -400,3 +400,133 @@ MqttCredentialModel ConfigService::getMqttCredential()
 ```
 
 We read the files in the data folder. Then we deserialize the JSON data using the ArduinoJson library. We return the models we created using the data we read.
+
+## Bringing It All Together in main.cpp: Finalizing the ESP32-AWS Connection
+
+In this part, we're going to write the main.cpp file. We'll use the PubSubClient library to connect to AWS IoT Core using MQTT. We'll use the ConfigService we created to read the wifi, mqtt and certificate configurations from the files. We'll use the models we created to store the configurations.
+
+- `main.cpp`
+
+```cpp
+#define LED_PIN 2
+#include <Arduino.h>
+#include <LittleFS.h>
+#include <PubSubClient.h>
+#include <WiFiClientSecure.h>
+#include "../service/ConfigService.h"
+
+WiFiClientSecure espClient;
+PubSubClient client(espClient);
+MqttCredentialModel mqttCredential;
+WifiCredentialModel wifiCredential;
+CertificateCredentialModel certificateCredential;
+
+void setup()
+{
+    Serial.begin(115200);
+    Serial.println("Starting...");
+    if (!LittleFS.begin())
+    {
+        Serial.println("An Error has occurred while mounting LittleFS");
+        return;
+    }
+
+    ConfigService configService(LittleFS);
+    wifiCredential = configService.getWifiCredential();
+    if (wifiCredential.isEmpty())
+    {
+        Serial.println("Wifi credential is empty");
+        return;
+    }
+
+    mqttCredential = configService.getMqttCredential();
+    if (mqttCredential.isEmpty())
+    {
+        Serial.println("Mqtt credential is empty");
+        return;
+    }
+
+    certificateCredential = configService.getCertificateCredential();
+    if (certificateCredential.isEmpty())
+    {
+        Serial.println("Certificate credential is empty");
+        return;
+    }
+
+    WiFi.begin(wifiCredential.ssid.c_str(), wifiCredential.password.c_str());
+    while (WiFi.status() != WL_CONNECTED)
+    {
+        digitalWrite(LED_PIN, HIGH);
+        delay(50);
+        digitalWrite(LED_PIN, LOW);
+        delay(50);
+        digitalWrite(LED_PIN, HIGH);
+        delay(50);
+        digitalWrite(LED_PIN, HIGH);
+        delay(1000);
+        Serial.print(".");
+    }
+    Serial.println("WiFi connected");
+
+    // Set the certificates to the client
+    espClient.setCACert(certificateCredential.ca.c_str());
+    espClient.setCertificate(certificateCredential.certificate.c_str());
+    espClient.setPrivateKey(certificateCredential.privateKey.c_str());
+
+    client.setServer(mqttCredential.host.c_str(), mqttCredential.port);
+
+    while (!client.connected())
+    {
+        Serial.println("Connecting to AWS IoT...");
+
+        if (client.connect(mqttCredential.clientId.c_str()))
+        {
+            Serial.println("Connected to AWS IoT");
+        }
+        else
+        {
+            Serial.print("failed, rc=");
+            Serial.print(client.state());
+            Serial.println(" try again in 5 seconds");
+            delay(5000);
+        }
+    }
+}
+void loop() {}
+```
+
+## Testing the ESP32-AWS Connection
+
+To test esp32-aws connection, we need to build and upload the code and folders to the esp32. We can do this using the platformIO tasks. We need to run the following tasks
+
+- Build Filesystem Image
+- Upload Filesystem Image
+- Build Code
+- Upload Code
+- Monitor
+
+To build Filesystem Image we need to run Build Filesystem Image task:
+
+![Build FileSystem Image](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/7jc1uuersr3xlolzp006.png)
+
+After the Clicking the Build Filesystem Image task, we can see the following output in the terminal:
+
+![Build FileSystem Image Output](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/6fz32aefmw3v1kgqz9z1.png)
+
+Now You can upload the filesystem image to the esp32. To do this, we need to run the Upload Filesystem Image task:
+
+The output of the Upload Filesystem Image task is as follows:
+
+![Upload FileSystem Image Output](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/ibgh3pec3yk5j3foqgc9.png)
+
+Now we can build the code. To do this, we need to run the Build task:
+
+![Build Code](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/ve1qvyvgee5hnt3ca2fm.png)
+
+ESP32 is ready to upload the code. To do this, we need to run the Upload Code task but I go with the Upload and Monitor task to see the output after uploading the code.
+
+After clicking the Upload and Monitor task, we can see the following output in the terminal:
+
+![After Upload and Monitor](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/700bu8oqjeb5lsz0gvqn.png)
+
+As you can see, the esp32 is connected to AWS IoT Core. Now we can send data to AWS IoT Core.
