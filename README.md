@@ -201,6 +201,7 @@ First We need to create the models for the wifi, mqtt and certificate configurat
 - `WifiCredentialModel.h`
 
 ```cpp
+// lib/model/WifiCredentialModel.h
 // WifiCredentialModel class definition.
 
 #ifndef WIFICREDENTIALMODEL_H
@@ -228,6 +229,7 @@ public:
 - `MqttCredentialModel.h`
 
 ```cpp
+// lib/model/MqttCredentialModel.h
 // MqttCredentialModel class definition.
 
 #ifndef MQTTCREDENTIALMODEL_H
@@ -259,6 +261,7 @@ public:
 - `CertificateCredentialModel.h`
 
 ```cpp
+// lib/model/CertificateCredentialModel.h
 // CertificateCredentialModel definition.
 
 #ifndef CERTIFICATECREDENTIALMODEL_H
@@ -284,3 +287,116 @@ public:
 
 #endif
 ```
+
+Now we can create a service that will read the wifi, mqtt and certificate configurations from the files and return the models. We'll create the following service in the service folder in the lib folder.
+
+- `ConfigService.h`
+
+```cpp
+// lib/service/ConfigService.h
+// ConfigService class definition.
+
+#ifndef CONFIGSERVICE_H
+#define CONFIGSERVICE_H
+
+#include <Arduino.h>
+#include "../model/CertificateCredentialModel.h"
+#include "../model/MqttCredentialModel.h"
+#include "../model/WifiCredentialModel.h"
+#include <FS.h>
+
+class ConfigService
+{
+private:
+    fs::FS &fileSystem;
+
+public:
+    ConfigService(fs::FS &fileSystem) : fileSystem(fileSystem){};
+
+    WifiCredentialModel getWifiCredential();
+    MqttCredentialModel getMqttCredential();
+    CertificateCredentialModel getCertificateCredential();
+};
+
+#endif
+
+```
+
+- `ConfigService.cpp`
+
+```cpp
+// lib/service/ConfigService.cpp
+// ConfigService class implementation
+#include "ConfigService.h"
+#include <ArduinoJson.h>
+#include <FS.h>
+
+String readFile(fs::FS &fs, const char *path)
+{
+    Serial.printf("Reading file: %s\r\n", path);
+
+    File file = fs.open(path, FILE_READ);
+    if (!file)
+    {
+        Serial.println("Failed to open file for reading");
+        return "";
+    }
+    return file.readString();
+}
+
+CertificateCredentialModel ConfigService::getCertificateCredential()
+{
+    String ca = readFile(fileSystem, "certs/aws_cert_ca.pem");
+    String certificate = readFile(fileSystem, "certs/certificate.pem.crt");
+    String privateKey = readFile(fileSystem, "certs/private.pem.key");
+    return CertificateCredentialModel(ca, certificate, privateKey);
+}
+
+WifiCredentialModel ConfigService::getWifiCredential()
+{
+    File wifiConfigFile = fileSystem.open("/wifi_config.json", "r");
+    if (!wifiConfigFile)
+    {
+        Serial.println("Failed to open wifi_config.json file");
+        return WifiCredentialModel();
+    }
+    DynamicJsonDocument doc(1024);
+    DeserializationError error = deserializeJson(doc, wifiConfigFile);
+    if (error)
+    {
+        Serial.println("Failed to read file, using default configuration");
+        wifiConfigFile.close();
+        return WifiCredentialModel();
+    }
+    String ssid = doc["ssid"];
+    String password = doc["password"];
+    wifiConfigFile.close();
+    return WifiCredentialModel(ssid, password);
+}
+
+MqttCredentialModel ConfigService::getMqttCredential()
+{
+    File mqttConfigFile = fileSystem.open("/mqtt_config.json", "r");
+    if (!mqttConfigFile)
+    {
+        Serial.println("Failed to open mqtt_config.json file");
+        return MqttCredentialModel();
+    }
+    DynamicJsonDocument doc(1024);
+    DeserializationError error = deserializeJson(doc, mqttConfigFile);
+    if (error)
+    {
+        Serial.println("Failed to read file, using default configuration");
+        mqttConfigFile.close();
+        return MqttCredentialModel();
+    }
+    String host = doc["host"];
+    int port = doc["port"];
+    String clientId = doc["clientId"];
+    String publishTopic = doc["publishTopic"];
+    mqttConfigFile.close();
+    return MqttCredentialModel(port, host, clientId, publishTopic);
+}
+```
+
+We read the files in the data folder. Then we deserialize the JSON data using the ArduinoJson library. We return the models we created using the data we read.
