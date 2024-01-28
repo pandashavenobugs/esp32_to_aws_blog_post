@@ -19,6 +19,7 @@ In this project, We utilize a range of technologies and techniques to achieve se
 - **AWS IoT Core**: Manages and connects IoT devices.
 - **DynamoDB**: AWS's NoSQL database service for handling device data.
 - **Lambda Function**: AWS service for running backend code in response to events.
+- **SAM CLI**: AWS CLI tool for managing aws resources.
 - **Golang**: The programming language used for writing AWS Lambda functions.
 
 ## Creating a PlatformIO Project: Your First Step
