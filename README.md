@@ -1240,3 +1240,9 @@ Everything looks working properly.
 In this article, We learned how to connect the esp32 to AWS IoT Core. We learned how to send data to AWS IoT Core. We learned how to create a SAM template to create a DynamoDB table, an IoT Core rule, and a Lambda function. We learned how to write a lambda function to save the data to DynamoDB. We learned how to deploy the SAM template. We learned how to test our architecture.
 
 I hope you enjoyed this article. If you have any questions or suggestions, please feel free to ask me in the comments.
+
+## Repository
+
+[esp32 hardware code example for this blogpost (github)](https://github.com/pandashavenobugs/esp32_to_aws_hardware_example)
+
+[cloudformation template and lambda function code example for this blogpost (github)](https://github.com/pandashavenobugs/esp32_to_aws_cloud_example)
