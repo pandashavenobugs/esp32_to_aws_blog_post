@@ -1246,3 +1246,11 @@ I hope you enjoyed this article. If you have any questions or suggestions, pleas
 [esp32 hardware code example for this blogpost (github)](https://github.com/pandashavenobugs/esp32_to_aws_hardware_example)
 
 [cloudformation template and lambda function code example for this blogpost (github)](https://github.com/pandashavenobugs/esp32_to_aws_cloud_example)
+
+## Connect with me
+
+[GitHub](https://github.com/pandashavenobugs)
+
+[LinkedIn](https://www.linkedin.com/in/cengiz-berat-dinckan-ab4208128/)
+
+[Twitter](https://twitter.com/dinckan_berat)
