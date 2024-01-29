@@ -795,3 +795,448 @@ The data we can see is as follows:
 Everything is working properly. So What is next?
 
 ## Building a SAM CloudFormation Template: Integrating DynamoDB, IoT Core Rule, and Lambda
+
+In this part, We're going to build a SAM CloudFormation template. We'll use the template to create a DynamoDB table, an IoT Core rule, and a Lambda function. Here's how We do it:
+
+#### 1. **Create a Role For The Lambda Function**:
+
+```yaml
+LambdaFunctionRole:
+  Type: AWS::IAM::Role
+  Properties:
+    AssumeRolePolicyDocument:
+      Version: "2012-10-17"
+      Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+              - lambda.amazonaws.com
+          Action:
+            - sts:AssumeRole
+    Policies:
+      - PolicyName: "lambda-function-policy"
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Resource: "*"
+      - PolicyName: DynamoDBCRUDPolicy
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:PutItem
+              Resource: "*"
+```
+
+We added 2 policies to the role. The first policy is for logging. The second policy is for DynamoDB. The lambda function will write data to DynamoDB. So We need to add the DynamoDB policy to the role. For now dynamodb:PutItem is enough for us but We can add other dynamodb actions to the policy.
+
+#### 2. **Create a Lambda Function**:
+
+```yaml
+MQTTSubscribeHandler:
+  Type: AWS::Serverless::Function
+  Properties:
+    Role: !GetAtt LambdaFunctionRole.Arn
+    FunctionName: "esp32_to_aws_mqtt-subscribe-handler"
+    CodeUri: ./functions/mqtt-subscribe-handler
+    Handler: app.lambda_handler
+    Runtime: go1.x
+    Architectures:
+      - x86_64
+```
+
+This function will be triggered by the IoT Core rule. The function will write the data to DynamoDB.
+
+#### 3. **Create a DynamoDB Table**:
+
+```yaml
+ThingData:
+  Type: AWS::DynamoDB::Table
+  Properties:
+    TableName: "ThingDataTable"
+    AttributeDefinitions:
+      - AttributeName: clientId
+        AttributeType: S
+      - AttributeName: createdAt
+        AttributeType: S
+    KeySchema:
+      - AttributeName: clientId
+        KeyType: HASH
+      - AttributeName: createdAt
+        KeyType: RANGE
+    BillingMode: PAY_PER_REQUEST
+```
+
+We'll use this table to store the data sent by the esp32.
+
+`clientId` is the partition key and `createdAt` is the sort key.
+
+`clientId` + `createdAt` is the composite primary key. We can use this key to save the data that have same clientId but different createdAt.
+
+#### 4. **Create an IoT Core Rule**:
+
+```yaml
+IoTTopicRule:
+  Type: AWS::IoT::TopicRule
+  Properties:
+    TopicRulePayload:
+      RuleDisabled: false
+      Sql: "SELECT * FROM 'esp32/sensor/test'"
+      Actions:
+        - Lambda:
+            FunctionArn: !GetAtt MQTTSubscribeHandler.Arn
+```
+
+This rule will trigger the lambda function when the data is sent to the `esp32/sensor/test` topic.
+
+#### 5. **Create a Permission to Invoke The Lambda Function**:
+
+```yaml
+MQTTSubscribeHandlerPermission:
+  Type: AWS::Lambda::Permission
+  Properties:
+    Action: lambda:InvokeFunction
+    FunctionName: !GetAtt MQTTSubscribeHandler.Arn
+    Principal: iot.amazonaws.com
+    SourceArn: !GetAtt IoTTopicRule.Arn
+```
+
+This permission will allow the IoT Core rule to invoke the lambda function.
+
+#### 6. **Finalize The SAM Template**:
+
+```yaml
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  esp32-to-aws-cloud-example
+
+  Sample SAM Template for esp32-to-aws-cloud-example
+
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Globals:
+  Function:
+    Timeout: 5
+    MemorySize: 128
+    Environment:
+      Variables:
+        ThingDataTable: "ThingDataTable"
+
+Resources:
+  LambdaFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: "lambda-function-policy"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: "*"
+        - PolicyName: DynamoDBCRUDPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:PutItem
+                Resource: "*"
+
+  MQTTSubscribeHandler:
+    Type: AWS::Serverless::Function
+    Properties:
+      Role: !GetAtt LambdaFunctionRole.Arn
+      FunctionName: "esp32_to_aws_mqtt-subscribe-handler"
+      CodeUri: ./functions/mqtt-subscribe-handler
+      Handler: app.lambda_handler
+      Runtime: go1.x
+      Architectures:
+        - x86_64
+
+  ThingData:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: "ThingDataTable"
+      AttributeDefinitions:
+        - AttributeName: clientId
+          AttributeType: S
+        - AttributeName: createdAt
+          AttributeType: S
+      KeySchema:
+        - AttributeName: clientId
+          KeyType: HASH
+        - AttributeName: createdAt
+          KeyType: RANGE
+      BillingMode: PAY_PER_REQUEST
+
+  IoTTopicRule:
+    Type: AWS::IoT::TopicRule
+    Properties:
+      TopicRulePayload:
+        RuleDisabled: false
+        Sql: "SELECT * FROM 'esp32/sensor/test'"
+        Actions:
+          - Lambda:
+              FunctionArn: !GetAtt MQTTSubscribeHandler.Arn
+
+  MQTTSubscribeHandlerPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt MQTTSubscribeHandler.Arn
+      Principal: iot.amazonaws.com
+      SourceArn: !GetAtt IoTTopicRule.Arn
+```
+
+## Building an AWS IoT Lambda Function with Golang
+
+In this part, We're going to write the lambda function code. We'll use the AWS SDK for Go to write the lambda function.
+
+First, We need to create a folder for the lambda function. We'll call our folder `mqtt-subscribe-handler`. Then We'll create a `main.go` file in the folder.
+
+The project folder structure is as follows:
+
+![Mqtt subscribe handler](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/jgolb4li4qzgunoch5uu.png)
+
+`mqtt-subscribe-handler` lambda function is under the `functions` folder.
+
+`lib` folder contains the models and services We created.
+
+![lib folder](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/88uxw6b75f9mnvcmyosl.png)
+
+**_Note_ :** We will use the `go.work` so that we can use the models, services and libraries in the lambda function. `lib` folder has the its own go.mod module so If we want to use it in the lambda functions it must be in the same root level with the lambda functions but it is not. To solve this problem We need to add the `lib` and lambda functions to the `go.work` file. Keep in mind that information If you want to refactor the services and models for the aws lambda functions in golang.
+
+```work
+go 1.21.4
+
+use (
+	./functions/mqtt-subscribe-handler
+	./lib
+)
+```
+
+Lets start writing the code.
+
+- lib/constants/dbNames.go
+
+```go
+package constants
+
+const THING_TABLE_NAME_KEY = "ThingDataTable"
+
+```
+
+While using dynamo db we need the table name. So We need to create a constant for the table name. It is related to Globals in the template file.
+
+```yaml
+Globals:
+  Function:
+    Timeout: 5
+    MemorySize: 128
+    Environment:
+      Variables:
+        ThingDataTable: "ThingDataTable"
+```
+
+- lib/helper/logger.go
+
+```go
+package helper
+
+import (
+	"encoding/json"
+	"log"
+)
+
+func EventLogger(event interface{}) {
+	eventJSON, err := json.Marshal(event)
+	if err != nil {
+		log.Printf("Error marshalling event: %v", err)
+	}
+	log.Printf("Event:\n%s", string(eventJSON))
+}
+
+```
+
+This helper function will be used to log events in json format.
+
+- lib/model/thingModel.go
+
+```go
+package model
+
+type ThingPayload struct {
+	ClientId    string  `json:"clientId"`
+	Temperature float64 `json:"temperature"`
+	Humidity    float64 `json:"humidity"`
+}
+
+type ThingData struct {
+	ThingPayload
+	CreatedAt string `json:"createdAt"`
+}
+```
+
+ThingPayload is the payload model We will use it as event in our lambda function. ThingData is for dynamo db. We'll use ThingData to save the data to DynamoDB.
+
+ThingPayload and ThingData have properties in common so We can use ThingPayload as an embedded struct in ThingData.
+
+- lib/service/thingDataDbService.go
+
+```go
+package service
+
+import (
+	"lib/constants"
+	"lib/model"
+	"os"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
+)
+
+type ThingDataDbService struct {
+	tableName        string
+	dynamoDbProvider *dynamodb.DynamoDB
+}
+
+func (s ThingDataDbService) CreateThing(thing model.ThingData) error {
+	attributeValue, err := dynamodbattribute.MarshalMap(thing)
+	if err != nil {
+		return err
+	}
+	input := &dynamodb.PutItemInput{
+		Item:      attributeValue,
+		TableName: aws.String(s.tableName),
+	}
+	_, err = s.dynamoDbProvider.PutItem(input)
+	return err
+}
+func NewThingDataDbService(session *session.Session) ThingDataDbService {
+	dynamoDBProvider := dynamodb.New(session)
+	return ThingDataDbService{
+		tableName:        os.Getenv(constants.THING_TABLE_NAME_KEY),
+		dynamoDbProvider: dynamoDBProvider,
+	}
+}
+
+```
+
+CreateThing function will be used to save the data to DynamoDB.
+As You can see we used the `os.Getenv(constants.THING_TABLE_NAME_KEY)` to get the table name. This is related to Globals in the template file.
+
+After creating the models and services We can start writing the lambda function.
+
+- functions/mqtt-subscribe-handler/main.go
+
+```go
+
+package main
+
+import (
+	"fmt"
+	"lib/helper"
+	"lib/model"
+	"lib/service"
+	"time"
+
+	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/aws/aws-sdk-go/aws/session"
+)
+
+func handler(event model.ThingPayload) {
+	helper.EventLogger(event)
+
+	currentTime := time.Now().UTC().Format(time.RFC3339)
+	sess, err := session.NewSession()
+	if err != nil {
+		fmt.Println("Error creating session: ", err)
+		return
+	}
+	thingDataDbService := service.NewThingDataDbService(sess)
+	thingData := model.ThingData{
+		ThingPayload: event,
+		CreatedAt:    currentTime,
+	}
+	err = thingDataDbService.CreateThing(thingData)
+	if err != nil {
+		fmt.Println("Error creating thing: ", err)
+		return
+	}
+
+}
+
+func main() {
+	lambda.Start(handler)
+}
+```
+
+First we log the event. Then We get the current time. After that We create a session. Then We create a thingDataDbService. Finally We create a thingData and save it to DynamoDB.
+
+## Deploying the SAM Template
+
+In this part, We're going to deploy the SAM template. We'll use the AWS CLI to deploy the SAM template. We will use Makefile to run the AWS CLI commands. Here's how We do it:
+
+#### 1. **Create a Makefile**:
+
+```makefile
+.PHONY: build
+
+build:
+	sam build
+
+clean-deploy:
+	rm -rf .aws-sam/cache
+	sam build
+	sam deploy --no-confirm-changeset
+```
+
+I create clean-deploy target to clean the cache and deploy the template because sometimes the changes in lib folder are not reflected in the lambda function. So We need to clean the cache and deploy the template again.
+
+#### 2. **Deploy the SAM Template**:
+
+```bash
+make clean-deploy
+```
+
+After running this command, We can see the following output in the terminal:
+
+![After Creation](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/ap7msps4ei1nfdjteoe8.png)
+
+As We can see, the stack is created successfully.
+
+## Testing Our ESP32-AWS Architecture
+
+To test it, I think it is enough to check the DynamoDB table. So We need to go to the DynamoDB console and click on the `Tables` tab. Then We can see the `ThingDataTable` table.
+
+![ThingDataTable](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/dvmsj7ycdgn09l8xxu1z.png)
+
+As We can see, the data sent by the esp32 is saved to DynamoDB.
+Everything looks working properly.
+
+## Conclusion
+
+In this article, We learned how to connect the esp32 to AWS IoT Core. We learned how to send data to AWS IoT Core. We learned how to create a SAM template to create a DynamoDB table, an IoT Core rule, and a Lambda function. We learned how to write a lambda function to save the data to DynamoDB. We learned how to deploy the SAM template. We learned how to test our architecture.
+
+I hope you enjoyed this article. If you have any questions or suggestions, please feel free to ask me in the comments.
